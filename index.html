@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chromatic — Eye Test Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f0ede8;
+    --chrome: #0f0e0c;
+    --accent: #e8612a;
+    --accent2: #f0a050;
+    --text-light: #f0ede8;
+    --text-muted: #6a6660;
+    --correct: #3cb97a;
+    --wrong: #d94f4f;
+  }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--chrome);
+    color: var(--text-light);
+    min-height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ════════════════════════════════
+     INTRO SCREEN
+  ════════════════════════════════ */
+  #intro {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  #intro-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .intro-content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+  }
+
+  .intro-pre {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.32em;
+    color: var(--accent);
+    text-transform: uppercase;
+    opacity: 0;
+    transform: translateY(14px);
+    animation: fadeUp 0.7s cubic-bezier(.2,0,.2,1) 0.5s forwards;
+    margin-bottom: 12px;
+  }
+
+  .intro-title {
+    font-size: clamp(3.8rem, 18vw, 9.5rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 0.88;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(22px) scale(0.97);
+    animation: fadeUp 0.85s cubic-bezier(.2,0,.2,1) 0.75s forwards;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .intro-title .c1 { color: var(--text-light); }
+  .intro-title .c2 { color: var(--accent); }
+
+  .intro-tagline {
+    margin-top: 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.73rem;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    text-align: center;
+    max-width: 300px;
+    line-height: 1.8;
+    opacity: 0;
+    animation: fadeUp 0.7s cubic-bezier(.2,0,.2,1) 1.05s forwards;
+  }
+
+  .intro-divider {
+    width: 32px;
+    height: 2px;
+    background: var(--accent);
+    margin: 24px auto;
+    opacity: 0;
+    animation: fadeUp 0.6s ease 1.25s forwards;
+  }
+
+  .btn-play {
+    pointer-events: all;
+    padding: 15px 54px;
+    background: transparent;
+    color: var(--text-light);
+    border: 1px solid rgba(240,237,232,0.22);
+    border-radius: 2px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    opacity: 0;
+    animation: fadeUp 0.7s ease 1.4s forwards;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.25s;
+  }
+
+  .btn-play::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.32s cubic-bezier(.4,0,.2,1);
+    z-index: -1;
+  }
+
+  .btn-play:hover { border-color: var(--accent); }
+  .btn-play:hover::before { transform: scaleX(1); }
+  .btn-play:active { transform: scale(0.97); }
+
+  .intro-scroll-hint {
+    position: absolute;
+    bottom: 26px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.22em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    opacity: 0;
+    animation: fadeUp 0.6s ease 1.9s forwards;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .scroll-line {
+    width: 1px;
+    height: 26px;
+    background: linear-gradient(to bottom, var(--text-muted), transparent);
+    animation: scrollPulse 2.2s ease-in-out infinite;
+  }
+
+  @keyframes scrollPulse {
+    0%,100% { opacity: 0.35; transform: scaleY(1); }
+    50%      { opacity: 0.9;  transform: scaleY(1.25); }
+  }
+
+  #intro.exit {
+    animation: introExit 0.85s cubic-bezier(.7,0,1,1) forwards;
+    pointer-events: none;
+  }
+
+  @keyframes introExit {
+    0%   { opacity: 1; transform: scale(1); }
+    55%  { opacity: 1; transform: scale(1.05); }
+    100% { opacity: 0; transform: scale(1.1); }
+  }
+
+  @keyframes fadeUp {
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* ════════════════════════════════
+     GAME UI
+  ════════════════════════════════ */
+  #game-ui {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    opacity: 0;
+    transition: opacity 0.55s ease 0.35s;
+  }
+
+  #game-ui.visible { opacity: 1; }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 28px;
+    border-bottom: 1px solid #1e1e1c;
+    flex-shrink: 0;
+  }
+
+  .logo { font-size: 1.05rem; font-weight: 800; letter-spacing: 0.08em; color: var(--accent); }
+  .logo span { color: var(--text-light); }
+
+  .hud { display: flex; gap: 32px; align-items: center; }
+
+  .hud-item { display: flex; flex-direction: column; align-items: flex-end; }
+
+  .hud-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem; letter-spacing: 0.14em;
+    color: var(--text-muted); text-transform: uppercase;
+  }
+
+  .hud-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 1.1rem; color: var(--text-light);
+    letter-spacing: 0.04em; transition: color 0.2s;
+  }
+
+  .game-wrapper {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 16px 20px; overflow: hidden;
+  }
+
+  .meta-bar {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 14px; width: 100%; max-width: 700px;
+  }
+
+  .diff-label {
+    font-family: 'DM Mono', monospace; font-size: 0.62rem;
+    letter-spacing: 0.12em; color: var(--text-muted);
+    text-transform: uppercase; white-space: nowrap;
+  }
+
+  .diff-track { flex: 1; height: 3px; background: #1e1e1c; border-radius: 2px; overflow: hidden; }
+
+  .diff-fill {
+    height: 100%; background: var(--accent); border-radius: 2px;
+    transition: width 0.6s cubic-bezier(.4,0,.2,1);
+  }
+
+  .diff-pct {
+    font-family: 'DM Mono', monospace; font-size: 0.62rem;
+    color: var(--text-muted); min-width: 36px; text-align: right;
+  }
+
+  .board-container {
+    width: 100%; max-width: 720px; aspect-ratio: 4/3;
+    background: var(--bg); border-radius: 6px;
+    position: relative; overflow: hidden;
+    box-shadow: 0 0 0 1px #1e1e1c, 0 24px 60px rgba(0,0,0,0.6);
+  }
+
+  #board { width: 100%; height: 100%; position: relative; }
+
+  .fig {
+    position: absolute; transform: translate(-50%, -50%);
+    cursor: pointer; transition: transform 0.12s ease, filter 0.12s ease;
+    will-change: transform;
+  }
+  .fig:hover { transform: translate(-50%, -50%) scale(1.08); }
+  .fig:active { transform: translate(-50%, -50%) scale(0.95); }
+  .fig svg { display: block; }
+
+  .flash {
+    position: absolute; inset: 0; border-radius: 6px;
+    pointer-events: none; opacity: 0; transition: opacity 0.05s;
+  }
+  .flash.correct { background: var(--correct); }
+  .flash.wrong   { background: var(--wrong); }
+  .flash.show    { opacity: 0.18; }
+
+  .hint {
+    margin-top: 12px; font-family: 'DM Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 0.1em;
+    color: var(--text-muted); text-transform: uppercase; opacity: 0.7;
+  }
+
+  .level-badge {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(15,14,12,0.91); border-radius: 6px;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 10;
+  }
+  .level-badge.visible { opacity: 1; pointer-events: all; }
+
+  .badge-eyeline {
+    font-family: 'DM Mono', monospace; font-size: 0.7rem;
+    letter-spacing: 0.22em; color: var(--text-muted);
+    text-transform: uppercase; margin-bottom: 6px;
+  }
+  .badge-num { font-size: clamp(3rem, 8vw, 5.5rem); font-weight: 800; color: var(--text-light); line-height: 1; }
+  .badge-sub { margin-top: 10px; font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--accent); letter-spacing: 0.1em; }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+  .board-container.shake { animation: shake 0.35s ease; }
+
+  .game-over-screen {
+    position: fixed; inset: 0; background: var(--chrome);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+    z-index: 300; opacity: 0; pointer-events: none; transition: opacity 0.5s;
+  }
+  .game-over-screen.show { opacity: 1; pointer-events: all; }
+
+  .go-eyeline { font-family: 'DM Mono', monospace; font-size: 0.7rem; letter-spacing: 0.2em; color: var(--text-muted); text-transform: uppercase; }
+  .go-title { font-size: clamp(2.5rem, 10vw, 6rem); font-weight: 800; letter-spacing: -0.03em; }
+
+  .go-stats {
+    display: flex; gap: 48px; margin: 20px 0;
+    padding: 20px 48px; border: 1px solid #252320; border-radius: 4px;
+  }
+  .go-stat { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .go-stat-val { font-family: 'DM Mono', monospace; font-size: 2.2rem; color: var(--text-light); }
+  .go-stat-lbl { font-family: 'DM Mono', monospace; font-size: 0.62rem; letter-spacing: 0.12em; color: var(--text-muted); text-transform: uppercase; }
+
+  .btn-restart {
+    margin-top: 8px; padding: 14px 40px;
+    background: var(--accent); color: var(--text-light);
+    border: none; border-radius: 3px;
+    font-family: 'Syne', sans-serif; font-size: 0.85rem;
+    font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    cursor: pointer; transition: transform 0.1s, background 0.15s;
+  }
+  .btn-restart:hover { background: #d4521f; }
+  .btn-restart:active { transform: scale(0.97); }
+
+  .lives { display: flex; gap: 6px; align-items: center; }
+  .life-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); transition: background 0.2s, transform 0.2s; }
+  .life-dot.lost { background: #252320; transform: scale(0.7); }
+</style>
+</head>
+<body>
+
+<!-- ══ INTRO ══ -->
+<div id="intro">
+  <canvas id="intro-canvas"></canvas>
+
+  <div class="intro-content">
+    <div class="intro-pre">Visual perception challenge</div>
+    <div class="intro-title">
+      <div class="c1">CHRO</div><div class="c2">MATIC</div>
+    </div>
+    <div class="intro-tagline">Can your eyes spot the one<br>that doesn't belong?</div>
+    <div class="intro-divider"></div>
+    <button class="btn-play" id="btn-play">Begin</button>
+  </div>
+
+  <div class="intro-scroll-hint">
+    <div class="scroll-line"></div>
+    <span>tap to start</span>
+  </div>
+</div>
+
+<!-- ══ GAME ══ -->
+<div id="game-ui">
+  <header>
+    <div class="logo">CHROM<span>ATIC</span></div>
+    <div class="hud">
+      <div class="hud-item">
+        <span class="hud-label">Score</span>
+        <span class="hud-value" id="score">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Level</span>
+        <span class="hud-value" id="level">1</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Lives</span>
+        <div class="lives" id="lives"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="game-wrapper">
+    <div class="meta-bar">
+      <span class="diff-label">Difficulty</span>
+      <div class="diff-track"><div class="diff-fill" id="diff-fill" style="width:2%"></div></div>
+      <span class="diff-pct" id="diff-pct">2%</span>
+    </div>
+
+    <div class="board-container" id="board-container">
+      <div id="board"></div>
+      <div class="flash" id="flash"></div>
+      <div class="level-badge" id="level-badge">
+        <div class="badge-eyeline">Level</div>
+        <div class="badge-num" id="badge-num">1</div>
+        <div class="badge-sub" id="badge-sub">Find the odd one out</div>
+      </div>
+    </div>
+
+    <div class="hint" id="hint">find the shape with a different color</div>
+  </div>
+</div>
+
+<div class="game-over-screen" id="game-over">
+  <div class="go-eyeline">Game Over</div>
+  <div class="go-title">NICE TRY</div>
+  <div class="go-stats">
+    <div class="go-stat">
+      <span class="go-stat-val" id="go-score">0</span>
+      <span class="go-stat-lbl">Score</span>
+    </div>
+    <div class="go-stat">
+      <span class="go-stat-val" id="go-level">1</span>
+      <span class="go-stat-lbl">Level Reached</span>
+    </div>
+  </div>
+  <button class="btn-restart" onclick="startGame()">Play Again</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ═══════════════════════════════════════
+   3D INTRO SCENE
+═══════════════════════════════════════ */
+(function initIntro() {
+  const canvas = document.getElementById('intro-canvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(0x0f0e0c, 1);
+  renderer.shadowMap.enabled = false;
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x0f0e0c, 0.038);
+
+  const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 100);
+  camera.position.set(0, 0, 9);
+
+  // Lights
+  scene.add(new THREE.AmbientLight(0xffffff, 0.2));
+
+  const la = new THREE.PointLight(0xe8612a, 4, 30);
+  la.position.set(7, 5, 6);
+  scene.add(la);
+
+  const lb = new THREE.PointLight(0x3355dd, 3, 25);
+  lb.position.set(-8, -4, 4);
+  scene.add(lb);
+
+  const lc = new THREE.PointLight(0xf0a050, 2.2, 20);
+  lc.position.set(0, 7, 3);
+  scene.add(lc);
+
+  // Geometry constructors
+  const geoMakers = [
+    () => new THREE.IcosahedronGeometry(1, 0),
+    () => new THREE.OctahedronGeometry(1, 0),
+    () => new THREE.TetrahedronGeometry(1.1, 0),
+    () => new THREE.BoxGeometry(1.3, 1.3, 1.3),
+    () => new THREE.TorusGeometry(0.72, 0.3, 5, 7),
+    () => new THREE.ConeGeometry(0.82, 1.7, 5),
+    () => new THREE.SphereGeometry(0.9, 6, 5),
+    () => new THREE.DodecahedronGeometry(0.9, 0),
+  ];
+
+  const colors = [
+    0xe8612a, 0xf0a050, 0xd44090, 0x4488ee,
+    0x55ddaa, 0xffd060, 0xff6688, 0x88aaff, 0xe05030,
+  ];
+
+  // Spawn meshes
+  const meshes = [];
+  const COUNT = 42;
+
+  for (let i = 0; i < COUNT; i++) {
+    const geo  = geoMakers[Math.floor(Math.random() * geoMakers.length)]();
+    const col  = colors[Math.floor(Math.random() * colors.length)];
+    const wire = Math.random() < 0.38;
+
+    const mat = wire
+      ? new THREE.MeshBasicMaterial({ color: col, wireframe: true, transparent: true, opacity: 0.28 + Math.random() * 0.2 })
+      : new THREE.MeshPhongMaterial({
+          color: col, shininess: 110, specular: 0xffffff,
+          transparent: true, opacity: 0.5 + Math.random() * 0.38,
+          flatShading: true,
+        });
+
+    const mesh = new THREE.Mesh(geo, mat);
+    const spread = 11;
+    mesh.position.set(
+      (Math.random() - 0.5) * spread * 2.4,
+      (Math.random() - 0.5) * spread * 1.5,
+      (Math.random() - 0.5) * spread * 0.9
+    );
+    const s = 0.22 + Math.random() * 0.9;
+    mesh.scale.setScalar(s);
+
+    mesh.userData = {
+      rs: new THREE.Vector3(
+        (Math.random() - 0.5) * 0.013,
+        (Math.random() - 0.5) * 0.02,
+        (Math.random() - 0.5) * 0.01
+      ),
+      fs: 0.25 + Math.random() * 0.65,
+      fa: 0.06 + Math.random() * 0.16,
+      fo: Math.random() * Math.PI * 2,
+      bp: mesh.position.clone(),
+      ds: (Math.random() - 0.5) * 0.005,
+      da: 0.4 + Math.random() * 1.3,
+      do: Math.random() * Math.PI * 2,
+    };
+
+    scene.add(mesh);
+    meshes.push(mesh);
+  }
+
+  // Mouse
+  let mx = 0, my = 0, tx = 0, ty = 0;
+  document.addEventListener('mousemove', e => {
+    mx = (e.clientX / window.innerWidth  - 0.5) * 2;
+    my = (e.clientY / window.innerHeight - 0.5) * 2;
+  });
+
+  // Resize
+  function resize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // RAF loop
+  let t = 0;
+  let alive = true;
+
+  function tick() {
+    if (!alive) return;
+    requestAnimationFrame(tick);
+    t += 0.016;
+
+    tx += (mx - tx) * 0.045;
+    ty += (my - ty) * 0.045;
+
+    camera.position.x = tx * 1.3;
+    camera.position.y = -ty * 0.9;
+    camera.lookAt(0, 0, 0);
+
+    meshes.forEach(m => {
+      const u = m.userData;
+      m.rotation.x += u.rs.x;
+      m.rotation.y += u.rs.y;
+      m.rotation.z += u.rs.z;
+      m.position.y = u.bp.y + Math.sin(t * u.fs + u.fo) * u.fa;
+      m.position.x = u.bp.x + Math.sin(t * u.ds + u.do) * u.da;
+    });
+
+    la.intensity = 4   + Math.sin(t * 1.1)  * 0.9;
+    lb.intensity = 3   + Math.cos(t * 0.73) * 0.7;
+    lc.position.x = Math.sin(t * 0.38) * 6;
+    lc.position.y = Math.cos(t * 0.29) * 5;
+
+    renderer.render(scene, camera);
+  }
+
+  tick();
+
+  window._killIntro = () => { alive = false; };
+})();
+
+/* ═══════════════════════════════════════
+   TRANSITION
+═══════════════════════════════════════ */
+function launchGame() {
+  const intro = document.getElementById('intro');
+  if (intro.dataset.x) return;
+  intro.dataset.x = '1';
+  intro.classList.add('exit');
+  setTimeout(() => {
+    intro.style.display = 'none';
+    if (window._killIntro) window._killIntro();
+    const ui = document.getElementById('game-ui');
+    ui.classList.add('visible');
+    startGame();
+  }, 820);
+}
+
+document.getElementById('btn-play').addEventListener('click', launchGame);
+
+/* ═══════════════════════════════════════
+   GAME LOGIC
+═══════════════════════════════════════ */
+let level = 1, score = 0, lives = 3, oddIndex = -1, busy = false;
+const MAX_LIVES = 3;
+
+const shapes = [
+  (s,c) => `<svg width="${s}" height="${s}" viewBox="0 0 1 1"><circle cx=".5" cy=".5" r=".46" fill="${c}"/></svg>`,
+  (s,c) => `<svg width="${s}" height="${s}" viewBox="0 0 1 1"><rect x=".06" y=".06" width=".88" height=".88" rx=".1" fill="${c}"/></svg>`,
+  (s,c) => `<svg width="${s}" height="${s}" viewBox="0 0 1 1"><polygon points=".5,.04 .96,.96 .04,.96" fill="${c}"/></svg>`,
+  (s,c) => `<svg width="${s}" height="${s}" viewBox="0 0 1 1"><polygon points=".5,.05 .95,.5 .5,.95 .05,.5" fill="${c}"/></svg>`,
+  (s,c) => `<svg width="${s}" height="${s}" viewBox="0 0 1 1"><rect x=".06" y=".27" width=".88" height=".46" fill="${c}"/></svg>`,
+];
+
+function levelConfig(lvl) {
+  return {
+    count:     Math.min(Math.round(4 + Math.pow(lvl - 1, 0.75) * 5), 64),
+    hueDiff:   Math.max(35 / (1 + (lvl - 1) * 0.28), 2.2),
+    lightDiff: Math.max(12 - lvl * 1.1, 0),
+    figSize:   Math.max(58 - lvl * 1.2, 28),
+    shapeLock: lvl > 6,
+  };
+}
+
+function difficultyPct(lvl) { return Math.min(Math.round(2 + (lvl - 1) * 3.2), 100); }
+
+function hsl(h, s, l) { return `hsl(${((h % 360) + 360) % 360},${s}%,${l}%)`; }
+
+function placeFigures(count, baseSize, W, H) {
+  const pad = baseSize * 0.6, pos = [];
+  for (let i = 0; i < count; i++) {
+    const mySize = baseSize * (0.85 + Math.random() * 0.3);
+    let placed = false;
+    for (let t = 0; t < 400; t++) {
+      const x = pad + Math.random() * (W - pad * 2);
+      const y = pad + Math.random() * (H - pad * 2);
+      const ok = pos.every(p => Math.hypot(p.x - x, p.y - y) >= (p.size + mySize) * 0.56);
+      if (ok) { pos.push({x, y, size: mySize}); placed = true; break; }
+    }
+    if (!placed) pos.push({
+      x: pad + Math.random() * (W - pad * 2),
+      y: pad + Math.random() * (H - pad * 2),
+      size: mySize,
+    });
+  }
+  return pos;
+}
+
+function buildLevel() {
+  const board = document.getElementById('board');
+  const cont  = document.getElementById('board-container');
+  const W = cont.clientWidth, H = cont.clientHeight;
+  const cfg = levelConfig(level);
+
+  const baseH = Math.random() * 360;
+  const baseS = 45 + Math.random() * 30;
+  const baseL = 45 + Math.random() * 20;
+  const oddH  = baseH + (Math.random() < 0.5 ? 1 : -1) * cfg.hueDiff;
+  const oddL  = baseL + (Math.random() < 0.5 ? 1 : -1) * cfg.lightDiff;
+  const si    = Math.floor(Math.random() * shapes.length);
+  const pos   = placeFigures(cfg.count, cfg.figSize, W, H);
+  oddIndex    = Math.floor(Math.random() * cfg.count);
+  board.innerHTML = '';
+
+  pos.forEach((p, i) => {
+    const isOdd = i === oddIndex;
+    const color = isOdd ? hsl(oddH, baseS, oddL) : hsl(baseH, baseS, baseL);
+    const fn    = cfg.shapeLock ? shapes[si] : shapes[Math.floor(Math.random() * shapes.length)];
+    const div   = document.createElement('div');
+    div.className   = 'fig';
+    div.style.left  = p.x + 'px';
+    div.style.top   = p.y + 'px';
+    div.innerHTML   = (level > 5 ? shapes[si] : fn)(p.size, color);
+    div.dataset.odd = isOdd ? '1' : '0';
+    div.addEventListener('click', onFigClick);
+    board.appendChild(div);
+  });
+}
+
+function onFigClick(e) {
+  if (busy) return;
+  e.currentTarget.dataset.odd === '1' ? onCorrect() : onWrong();
+}
+
+function onCorrect() {
+  busy = true;
+  score += level * 10;
+  document.getElementById('score').textContent = score;
+  flashBoard('correct');
+  level++;
+  setTimeout(() => showLevelBadge(() => { buildLevel(); updateUI(); busy = false; }), 320);
+}
+
+function onWrong() {
+  busy = true;
+  lives--;
+  updateLives();
+  flashBoard('wrong');
+  const bc = document.getElementById('board-container');
+  bc.classList.add('shake');
+  setTimeout(() => bc.classList.remove('shake'), 400);
+  if (lives <= 0) setTimeout(showGameOver, 600);
+  else setTimeout(() => { busy = false; }, 600);
+}
+
+function flashBoard(type) {
+  const f = document.getElementById('flash');
+  f.className = `flash ${type} show`;
+  setTimeout(() => f.className = 'flash', 300);
+}
+
+function showLevelBadge(cb) {
+  const badge = document.getElementById('level-badge');
+  document.getElementById('badge-num').textContent = level;
+  const d = difficultyPct(level);
+  document.getElementById('badge-sub').textContent =
+    d < 30 ? 'Find the odd one out' :
+    d < 60 ? 'Getting tricky…' :
+    d < 85 ? 'Stay focused' : 'Maximum difficulty';
+  badge.classList.add('visible');
+  setTimeout(() => { badge.classList.remove('visible'); setTimeout(cb, 300); }, 900);
+}
+
+function updateUI() {
+  document.getElementById('level').textContent = level;
+  const pct = difficultyPct(level);
+  document.getElementById('diff-fill').style.width = pct + '%';
+  document.getElementById('diff-pct').textContent = pct + '%';
+  document.getElementById('hint').style.opacity = Math.max(0.7 - (level - 1) * 0.05, 0.1);
+}
+
+function updateLives() {
+  const c = document.getElementById('lives');
+  c.innerHTML = '';
+  for (let i = 0; i < MAX_LIVES; i++) {
+    const d = document.createElement('div');
+    d.className = 'life-dot' + (i >= lives ? ' lost' : '');
+    c.appendChild(d);
+  }
+}
+
+function showGameOver() {
+  document.getElementById('go-score').textContent = score;
+  document.getElementById('go-level').textContent = level;
+  document.getElementById('game-over').classList.add('show');
+}
+
+function startGame() {
+  level = 1; score = 0; lives = MAX_LIVES; busy = false;
+  document.getElementById('game-over').classList.remove('show');
+  document.getElementById('score').textContent = '0';
+  updateLives(); updateUI();
+  showLevelBadge(() => { buildLevel(); busy = false; });
+}
+
+window.addEventListener('resize', () => { if (!busy) buildLevel(); });
+</script>
+</body>
+</html>

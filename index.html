@@ -630,12 +630,17 @@ function placeFigures(count, baseSize, W, H) {
   for (let i = 0; i < count; i++) {
     const mySize = baseSize * (0.85 + Math.random() * 0.3);
     let placed = false;
-    for (let t = 0; t < 400; t++) {
+    for (let t = 0; t < 600; t++) {
       const x = pad + Math.random() * (W - pad * 2);
       const y = pad + Math.random() * (H - pad * 2);
-      const ok = pos.every(p => Math.hypot(p.x - x, p.y - y) >= (p.size + mySize) * 0.56);
+      // 0.62 factor accounts for non-circular shapes (squares, triangles)
+      // whose corners extend beyond a simple radius, preventing corner overlap
+      const ok = pos.every(p => Math.hypot(p.x - x, p.y - y) >= (p.size + mySize) * 0.62);
       if (ok) { pos.push({x, y, size: mySize}); placed = true; break; }
     }
+    // Fallback: skip this shape rather than force-placing it overlapping
+    // (better to have fewer shapes than overlapping ones)
+    if (!placed && pos.length >= Math.ceil(count * 0.6)) continue;
     if (!placed) pos.push({
       x: pad + Math.random() * (W - pad * 2),
       y: pad + Math.random() * (H - pad * 2),
@@ -658,8 +663,10 @@ function buildLevel() {
   const oddL  = baseL + (Math.random() < 0.5 ? 1 : -1) * cfg.lightDiff;
   const si    = Math.floor(Math.random() * shapes.length);
   const pos   = placeFigures(cfg.count, cfg.figSize, W, H);
-  oddIndex    = Math.floor(Math.random() * cfg.count);
+  oddIndex    = Math.floor(Math.random() * Math.min(pos.length, cfg.count));
   board.innerHTML = '';
+
+  let oddDiv = null;
 
   pos.forEach((p, i) => {
     const isOdd = i === oddIndex;
@@ -672,8 +679,15 @@ function buildLevel() {
     div.innerHTML   = (level > 5 ? shapes[si] : fn)(p.size, color);
     div.dataset.odd = isOdd ? '1' : '0';
     div.addEventListener('click', onFigClick);
-    board.appendChild(div);
+    if (isOdd) {
+      oddDiv = div; // hold back, append last so it's always on top
+    } else {
+      board.appendChild(div);
+    }
   });
+
+  // Odd shape appended last = highest z-order, always tappable
+  if (oddDiv) board.appendChild(oddDiv);
 }
 
 function onFigClick(e) {
